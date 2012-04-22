@@ -1,5 +1,5 @@
 /*
-  stm32flash - Open Source ST STM32 flash program for *nix
+  stm32blctl - Open Source ST STM32 flash program for *nix
   Copyright (C) 2010 Geoffrey McRae <geoff@spacevs.com>
   Copyright (C) 2011 Steve Markgraf <steve@steve-m.de>
 
@@ -69,7 +69,7 @@ int main(int argc, char* argv[]) {
 	int ret = 1;
 	parser_err_t perr;
 
-	printf("stm32flash - http://stm32flash.googlecode.com/\n\n");
+	printf("stm32blctl - https://github.com/dlebed/stm32blctl\n\n");
 	if (parse_options(argc, argv) != 0)
 		goto close;
 

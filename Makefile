@@ -5,7 +5,7 @@ export AR
 
 all:
 	$(MAKE) -C parsers
-	$(CC) -g -o stm32flash -I./ \
+	$(CC) -g -o stm32blctl -I./ \
 		main.c \
 		utils.c \
 		stm32.c \
@@ -17,7 +17,7 @@ all:
 
 clean:
 	$(MAKE) -C parsers clean
-	rm -f stm32flash
+	rm -f stm32blctl
 
 install: all
-	cp stm32flash /usr/local/bin
+	cp stm32blctl /usr/local/bin

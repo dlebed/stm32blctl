@@ -1,5 +1,5 @@
 /*
-  stm32flash - Open Source ST STM32 flash program for *nix
+  stm32blctl - Open Source ST STM32 flash program for *nix
   Copyright (C) 2010 Geoffrey McRae <geoff@spacevs.com>
 
   This program is free software; you can redistribute it and/or
