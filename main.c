@@ -48,6 +48,8 @@ serial_baud_t	baudRate	= SERIAL_BAUD_57600;
 int		rd	 	= 0;
 int		wr		= 0;
 int		wu		= 0;
+int		rp		= 0;
+int 	ru		= 0;
 int		npages		= 0xFF;
 int             spage           = 0;
 char		verify		= 0;
@@ -190,7 +192,18 @@ int main(int argc, char* argv[]) {
 		reset_flag = 0;
 		stm32_wunprot_memory(stm);
 		fprintf(stdout,	"Done.\n");
-
+	} else if (rp) {
+		fprintf(stdout, "Read-protecting flash\n");
+		/* the device automatically performs a reset after the sending the ACK */
+		reset_flag = 0;
+		stm32_readprotect_memory(stm);
+		fprintf(stdout,	"Done.\n");
+	} else if (ru) {
+		fprintf(stdout, "Read-unprotecting flash\n");
+		/* the device automatically performs a reset after the sending the ACK */
+		reset_flag = 0;
+		stm32_readunprotect_memory(stm);
+		fprintf(stdout,	"Done.\n");
 	} else if (wr) {
 		printf("\n");
 
@@ -300,7 +313,7 @@ close:
 
 int parse_options(int argc, char *argv[]) {
 	int c;
-	while((c = getopt(argc, argv, "b:r:w:e:vn:g:fchus:")) != -1) {
+	while((c = getopt(argc, argv, "b:r:w:e:vn:g:fchupms:")) != -1) {
 		switch(c) {
 			case 'b':
 				baudRate = serial_get_baud(strtoul(optarg, NULL, 0));
@@ -338,6 +351,14 @@ int parse_options(int argc, char *argv[]) {
 				break;
 			case 'v':
 				verify = 1;
+				break;
+
+			case 'p':
+				rp = 1;
+				break;
+
+			case 'm':
+				ru = 1;
 				break;
 
 			case 'n':
@@ -397,6 +418,8 @@ void show_help(char *name) {
 		"	-r filename	Read flash to file\n"
 		"	-w filename	Write flash to file\n"
 		"	-u		Disable the flash write-protection\n"
+		"	-p		Enable the flash read-protection\n"
+		"	-m		Disable the flash read-protection (with mass-erase)\n"
 		"	-e n		Only erase n pages before writing the flash\n"
 		"	-v		Verify writes\n"
 		"	-n count	Retry failed writes up to count times (default 10)\n"

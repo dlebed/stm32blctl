@@ -267,6 +267,18 @@ char stm32_wunprot_memory(const stm32_t *stm) {
 	return 1;
 }
 
+char stm32_readprotect_memory(const stm32_t *stm) {
+	if (!stm32_send_command(stm, stm->cmd->rp)) return 0;
+	if (!stm32_send_command(stm, 0x7D        )) return 0;
+	return 1;
+}
+
+char stm32_readunprotect_memory(const stm32_t *stm) {
+	if (!stm32_send_command(stm, stm->cmd->ur)) return 0;
+	if (!stm32_send_command(stm, 0x6D        )) return 0;
+	return 1;
+}
+
 char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
 	if (!stm32_send_command(stm, stm->cmd->er)) {
 		fprintf(stderr, "Can't initiate chip erase!\n");
