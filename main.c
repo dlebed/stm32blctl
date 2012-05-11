@@ -60,6 +60,7 @@ char		init_flag	= 1;
 char		force_binary	= 0;
 char		reset_flag	= 1;
 char		*filename;
+uint8_t 	init_infinite = 0;
 
 /* functions */
 int  parse_options(int argc, char *argv[]);
@@ -137,7 +138,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	printf("Serial Config: %s\n", serial_get_setup_str(serial));
-	if (!(stm = stm32_init(serial, init_flag))) goto close;
+	if (!(stm = stm32_init(serial, init_flag, init_infinite))) goto close;
 
 	printf("Version      : 0x%02x\n", stm->bl_version);
 	printf("Option 1     : 0x%02x\n", stm->option1);
@@ -313,7 +314,7 @@ close:
 
 int parse_options(int argc, char *argv[]) {
 	int c;
-	while((c = getopt(argc, argv, "b:r:w:e:vn:g:fchupms:")) != -1) {
+	while((c = getopt(argc, argv, "b:r:w:e:vn:g:fchupmls:")) != -1) {
 		switch(c) {
 			case 'b':
 				baudRate = serial_get_baud(strtoul(optarg, NULL, 0));
@@ -381,6 +382,10 @@ int parse_options(int argc, char *argv[]) {
 				init_flag = 0;
 				break;
 
+			case 'l':
+				init_infinite = 1;
+				break;
+
 			case 'h':
 				show_help(argv[0]);
 				return 1;
@@ -417,6 +422,7 @@ void show_help(char *name) {
 		"	-b rate		Baud rate (default 57600)\n"
 		"	-r filename	Read flash to file\n"
 		"	-w filename	Write flash to file\n"
+		"	-l		Infinite loop during initialization until success\n"
 		"	-u		Disable the flash write-protection\n"
 		"	-p		Enable the flash read-protection\n"
 		"	-m		Disable the flash read-protection (with mass-erase)\n"
