@@ -30,6 +30,9 @@
 #define STM32_CMD_GET	0x00	/* get the version and command supported */
 #define STM32_CMD_EE	0x44	/* extended erase */
 
+#define STM32_READ_OK		0x00
+#define STM32_READ_ERROR	0xFF
+
 struct stm32_cmd {
 	uint8_t get;
 	uint8_t gvr;
@@ -63,7 +66,7 @@ const stm32_dev_t devices[] = {
 /* internal functions */
 uint8_t stm32_gen_cs(const uint32_t v);
 void    stm32_send_byte(const stm32_t *stm, uint8_t byte);
-uint8_t stm32_read_byte(const stm32_t *stm);
+uint8_t stm32_read_byte(const stm32_t *stm, uint8_t *res);
 char    stm32_send_command(const stm32_t *stm, const uint8_t cmd);
 
 /* stm32 programs */
@@ -86,29 +89,32 @@ void stm32_send_byte(const stm32_t *stm, uint8_t byte) {
 	}
 }
 
-uint8_t stm32_read_byte(const stm32_t *stm) {
+uint8_t stm32_read_byte(const stm32_t *stm, uint8_t *res) {
 	uint8_t byte;
 	serial_err_t err;
 	err = serial_read(stm->serial, &byte, 1);
 	if (err != SERIAL_ERR_OK) {
-		perror("read_byte");
-		assert(0);
+		//perror("read_byte");
+		//assert(0);
+		*res = STM32_READ_ERROR;
 	}
 	return byte;
 }
 
 char stm32_send_command(const stm32_t *stm, const uint8_t cmd) {
+	uint8_t res = STM32_READ_OK;
+
 	stm32_send_byte(stm, cmd);
 	stm32_send_byte(stm, cmd ^ 0xFF);
-	if (stm32_read_byte(stm) != STM32_ACK) {
+	if (stm32_read_byte(stm, &res) != STM32_ACK || res != STM32_READ_OK) {
 		fprintf(stderr, "Error sending command 0x%02x to device\n", cmd);
 		return 0;
 	}
 	return 1;
 }
 
-stm32_t* stm32_init(const serial_t *serial, const char init) {
-	uint8_t len;
+stm32_t* stm32_init(const serial_t *serial, const char init, uint8_t init_infinite) {
+	uint8_t len, res = STM32_READ_OK;
 	stm32_t *stm;
 
 	stm      = calloc(sizeof(stm32_t), 1);
@@ -116,34 +122,52 @@ stm32_t* stm32_init(const serial_t *serial, const char init) {
 	stm->serial = serial;
 
 	if (init) {
-		stm32_send_byte(stm, STM32_CMD_INIT);
-		if (stm32_read_byte(stm) != STM32_ACK) {
-			stm32_close(stm);
-			fprintf(stderr, "Failed to get init ACK from device\n");
-			return NULL;
+		while(1) {
+			stm32_send_byte(stm, STM32_CMD_INIT);
+			if (stm32_read_byte(stm, &res) != STM32_ACK || res != STM32_READ_OK) {
+				if (init_infinite) {
+					fprintf(stderr, "Failed to get init ACK from device. Sending init again...\n");
+				} else {
+					fprintf(stderr, "Failed to get init ACK from device. Exiting...\n");
+					stm32_close(stm);
+					return NULL;
+				}
+			} else {
+				break;
+			}
 		}
 	}
 
 	/* get the bootloader information */
 	if (!stm32_send_command(stm, STM32_CMD_GET)) return 0;
-	len              = stm32_read_byte(stm) + 1;
-	stm->bl_version  = stm32_read_byte(stm); --len;
-	stm->cmd->get    = stm32_read_byte(stm); --len;
-	stm->cmd->gvr    = stm32_read_byte(stm); --len;
-	stm->cmd->gid    = stm32_read_byte(stm); --len;
-	stm->cmd->rm     = stm32_read_byte(stm); --len;
-	stm->cmd->go     = stm32_read_byte(stm); --len;
-	stm->cmd->wm     = stm32_read_byte(stm); --len;
-	stm->cmd->er     = stm32_read_byte(stm); --len;
-	stm->cmd->wp     = stm32_read_byte(stm); --len;
-	stm->cmd->uw     = stm32_read_byte(stm); --len;
-	stm->cmd->rp     = stm32_read_byte(stm); --len;
-	stm->cmd->ur     = stm32_read_byte(stm); --len;
+
+	len              = stm32_read_byte(stm, &res) + 1;
+	stm->bl_version  = stm32_read_byte(stm, &res); --len;
+	stm->cmd->get    = stm32_read_byte(stm, &res); --len;
+	stm->cmd->gvr    = stm32_read_byte(stm, &res); --len;
+	stm->cmd->gid    = stm32_read_byte(stm, &res); --len;
+	stm->cmd->rm     = stm32_read_byte(stm, &res); --len;
+	stm->cmd->go     = stm32_read_byte(stm, &res); --len;
+	stm->cmd->wm     = stm32_read_byte(stm, &res); --len;
+	stm->cmd->er     = stm32_read_byte(stm, &res); --len;
+	stm->cmd->wp     = stm32_read_byte(stm, &res); --len;
+	stm->cmd->uw     = stm32_read_byte(stm, &res); --len;
+	stm->cmd->rp     = stm32_read_byte(stm, &res); --len;
+	stm->cmd->ur     = stm32_read_byte(stm, &res); --len;
+
+	if (res != STM32_READ_OK) {
+		stm32_close(stm);
+		return NULL;
+	}
+
 	if (len > 0) {
 		fprintf(stderr, "Seems this bootloader returns more then we understand in the GET command, we will skip the unknown bytes\n");
-		while(len-- > 0) stm32_read_byte(stm);
+		while(len-- > 0) stm32_read_byte(stm, &res);
 	}
-	if (stm32_read_byte(stm) != STM32_ACK) {
+
+	res = STM32_READ_OK;
+
+	if (stm32_read_byte(stm, &res) != STM32_ACK || res != STM32_READ_OK) {
 		stm32_close(stm);
 		return NULL;
 	}
@@ -154,10 +178,11 @@ stm32_t* stm32_init(const serial_t *serial, const char init) {
 		return NULL;
 	}
 
-	stm->version = stm32_read_byte(stm);
-	stm->option1 = stm32_read_byte(stm);
-	stm->option2 = stm32_read_byte(stm);
-	if (stm32_read_byte(stm) != STM32_ACK) {
+	stm->version = stm32_read_byte(stm, &res);
+	stm->option1 = stm32_read_byte(stm, &res);
+	stm->option2 = stm32_read_byte(stm, &res);
+
+	if (stm32_read_byte(stm, &res) != STM32_ACK || res != STM32_READ_OK) {
 		stm32_close(stm);
 		return NULL;
 	}
@@ -167,14 +192,24 @@ stm32_t* stm32_init(const serial_t *serial, const char init) {
 		stm32_close(stm);
 		return NULL;
 	}
-	len = stm32_read_byte(stm) + 1;
+
+	len = stm32_read_byte(stm, &res) + 1;
+
+	if (res != STM32_READ_OK) {
+		stm32_close(stm);
+		fprintf(stderr, "Error reading PID\n");
+		return NULL;
+	}
+
 	if (len != 2) {
 		stm32_close(stm);
 		fprintf(stderr, "More then two bytes sent in the PID, unknown/unsupported device\n");
 		return NULL;
 	}
-	stm->pid = (stm32_read_byte(stm) << 8) | stm32_read_byte(stm);
-	if (stm32_read_byte(stm) != STM32_ACK) {
+
+	stm->pid = (stm32_read_byte(stm, &res) << 8) | stm32_read_byte(stm, &res);
+
+	if (stm32_read_byte(stm, &res) != STM32_ACK || res != STM32_READ_OK) {
 		stm32_close(stm);
 		return NULL;
 	}
@@ -198,7 +233,7 @@ void stm32_close(stm32_t *stm) {
 }
 
 char stm32_read_memory(const stm32_t *stm, uint32_t address, uint8_t data[], unsigned int len) {
-	uint8_t cs;
+	uint8_t cs, res = STM32_READ_OK;
 	unsigned int i;
 	assert(len > 0 && len < 257);
 
@@ -211,19 +246,19 @@ char stm32_read_memory(const stm32_t *stm, uint32_t address, uint8_t data[], uns
 	if (!stm32_send_command(stm, stm->cmd->rm)) return 0;
 	assert(serial_write(stm->serial, &address, 4) == SERIAL_ERR_OK);
 	stm32_send_byte(stm, cs);
-	if (stm32_read_byte(stm) != STM32_ACK) return 0;
+	if (stm32_read_byte(stm, &res) != STM32_ACK || res != STM32_READ_OK) return 0;
 
 	i = len - 1;
 	stm32_send_byte(stm, i);
 	stm32_send_byte(stm, i ^ 0xFF);
-	if (stm32_read_byte(stm) != STM32_ACK) return 0;
+	if (stm32_read_byte(stm, &res) != STM32_ACK || res != STM32_READ_OK) return 0;
 
 	assert(serial_read(stm->serial, data, len) == SERIAL_ERR_OK);
 	return 1;
 }
 
 char stm32_write_memory(const stm32_t *stm, uint32_t address, uint8_t data[], unsigned int len) {
-	uint8_t cs;
+	uint8_t cs, res = STM32_READ_OK;
 	unsigned int i;
 	int c, extra;
 	assert(len > 0 && len < 257);
@@ -238,7 +273,7 @@ char stm32_write_memory(const stm32_t *stm, uint32_t address, uint8_t data[], un
 	if (!stm32_send_command(stm, stm->cmd->wm)) return 0;
 	assert(serial_write(stm->serial, &address, 4) == SERIAL_ERR_OK);
 	stm32_send_byte(stm, cs);
-	if (stm32_read_byte(stm) != STM32_ACK) return 0;
+	if (stm32_read_byte(stm, &res) != STM32_ACK || res != STM32_READ_OK) return 0;
 
 	/* setup the cs and send the length */
 	extra = len % 4;
@@ -259,7 +294,7 @@ char stm32_write_memory(const stm32_t *stm, uint32_t address, uint8_t data[], un
 
 	/* send the checksum */
 	stm32_send_byte(stm, cs);
-	return stm32_read_byte(stm) == STM32_ACK;
+	return (stm32_read_byte(stm, &res) == STM32_ACK) && (res == STM32_READ_OK);
 }
 
 char stm32_wunprot_memory(const stm32_t *stm) {
@@ -281,6 +316,8 @@ char stm32_readunprotect_memory(const stm32_t *stm) {
 }
 
 char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
+	uint8_t res = STM32_READ_OK;
+
 	if (!stm32_send_command(stm, stm->cmd->er)) {
 		fprintf(stderr, "Can't initiate chip erase!\n");
 		return 0;
@@ -299,7 +336,7 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
 			stm32_send_byte(stm, 0xFF);
 			stm32_send_byte(stm, 0xFF); // 0xFFFF the magic number for mass erase
 			stm32_send_byte(stm, 0x00); // 0x00 the XOR of those two bytes as a checksum
-			if (stm32_read_byte(stm) != STM32_ACK) {
+			if (stm32_read_byte(stm, &res) != STM32_ACK || res != STM32_READ_OK) {
 				fprintf(stderr, "Mass erase failed. Try specifying the number of pages to be erased.\n");
 				return 0;
 			}
@@ -328,7 +365,7 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
  		}
  		stm32_send_byte(stm, checksum);  // Ought to need to hand over a valid checksum here...but 0 seems to work!
  	
- 		if (stm32_read_byte(stm) != STM32_ACK) {
+ 		if (stm32_read_byte(stm, &res) != STM32_ACK || res != STM32_READ_OK) {
  			fprintf(stderr, "Page-by-page erase failed. Check the maximum pages your device supports.\n");
 			return 0;
  		}
@@ -349,12 +386,12 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
 			cs ^= pg_num;
 		}
 		stm32_send_byte(stm, cs);
-		return stm32_read_byte(stm) == STM32_ACK;
+		return (stm32_read_byte(stm, &res) == STM32_ACK) && (res == STM32_READ_OK);
 	}
 }
 
 char stm32_go(const stm32_t *stm, uint32_t address) {
-	uint8_t cs;
+	uint8_t cs, res = STM32_READ_OK;
 
 	address = be_u32      (address);
 	cs      = stm32_gen_cs(address);
@@ -363,7 +400,7 @@ char stm32_go(const stm32_t *stm, uint32_t address) {
 	serial_write(stm->serial, &address, 4);
 	serial_write(stm->serial, &cs     , 1);
 
-	return stm32_read_byte(stm) == STM32_ACK;
+	return (stm32_read_byte(stm, &res) == STM32_ACK) && (res == STM32_READ_OK);
 }
 
 char stm32_reset_device(const stm32_t *stm) {
