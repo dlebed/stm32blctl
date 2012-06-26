@@ -50,7 +50,7 @@ int		wr		= 0;
 int		wu		= 0;
 int		rp		= 0;
 int 	ru		= 0;
-int		npages		= 0xFF;
+uint16_t		npages		= 0xFF;
 int             spage           = 0;
 char		verify		= 0;
 int		retry		= 10;
@@ -338,7 +338,7 @@ int parse_options(int argc, char *argv[]) {
 				break;
 			case 'e':
 				npages = strtoul(optarg, NULL, 0);
-				if (npages > 0xFF || npages < 0) {
+				if (npages > 0xFFFF || npages < 0) {
 					fprintf(stderr, "ERROR: You need to specify a page count between 0 and 255");
 					return 1;
 				}

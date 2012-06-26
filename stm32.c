@@ -315,7 +315,7 @@ char stm32_readunprotect_memory(const stm32_t *stm) {
 	return 1;
 }
 
-char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
+char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint16_t pages) {
 	uint8_t res = STM32_READ_OK;
 
 	if (!stm32_send_command(stm, stm->cmd->er)) {
