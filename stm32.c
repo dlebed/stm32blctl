@@ -52,6 +52,7 @@ const stm32_dev_t devices[] = {
         {0x413, "STM32F4xx"         , 0x20002000, 0x20020000, 0x08000000, 0x08100000,  4, 16384, 0x1FFFC000, 0x1FFFC00F, 0x1FFF0000, 0x1FFF77DF},
 	{0x414, "High-density"      , 0x20000200, 0x20010000, 0x08000000, 0x08080000,  2, 2048, 0x1FFFF800, 0x1FFFF80F, 0x1FFFF000, 0x1FFFF800},
 	{0x416, "Medium-density ULP", 0x20000800, 0x20004000, 0x08000000, 0x08020000, 16,  256, 0x1FF80000, 0x1FF8000F, 0x1FF00000, 0x1FF01000},
+    {0x436, "High-density ULP"  , 0x20000800, 0x2000C000, 0x08000000, 0x08060000, 16,  256, 0x1FF80000, 0x1FF8001F, 0x1FF00000, 0x1FF02000},
 	{0x418, "Connectivity line" , 0x20001000, 0x20010000, 0x08000000, 0x08040000,  2, 2048, 0x1FFFF800, 0x1FFFF80F, 0x1FFFB000, 0x1FFFF800},
 	{0x420, "Medium-density VL" , 0x20000200, 0x20002000, 0x08000000, 0x08020000,  4, 1024, 0x1FFFF800, 0x1FFFF80F, 0x1FFFF000, 0x1FFFF800},
 	{0x428, "High-density VL"   , 0x20000200, 0x20008000, 0x08000000, 0x08080000,  2, 2048, 0x1FFFF800, 0x1FFFF80F, 0x1FFFF000, 0x1FFFF800},
@@ -308,19 +309,24 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
 		uint16_t pg_num;
 		uint8_t pg_byte;
  		uint8_t cs = 0;
+ 		uint8_t checksum = 0;
  
  		stm32_send_byte(stm, pages >> 8); // Number of pages to be erased, two bytes, MSB first
+ 		checksum = pages >> 8;
  		stm32_send_byte(stm, pages & 0xFF);
+ 		checksum ^= pages & 0xFF;
  
  		for (pg_num = 0; pg_num <= pages; pg_num++) {
  			pg_byte = pg_num >> 8;
  			cs ^= pg_byte;
+ 			checksum ^= pg_byte;
  			stm32_send_byte(stm, pg_byte);
  			pg_byte = pg_num & 0xFF;
  			cs ^= pg_byte;
+ 			checksum ^= pg_byte;
  			stm32_send_byte(stm, pg_byte);
  		}
- 		stm32_send_byte(stm, 0x00);  // Ought to need to hand over a valid checksum here...but 0 seems to work!
+ 		stm32_send_byte(stm, checksum);  // Ought to need to hand over a valid checksum here...but 0 seems to work!
  	
  		if (stm32_read_byte(stm) != STM32_ACK) {
  			fprintf(stderr, "Page-by-page erase failed. Check the maximum pages your device supports.\n");
