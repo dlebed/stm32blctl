@@ -193,18 +193,21 @@ int main(int argc, char* argv[]) {
 		reset_flag = 0;
 		stm32_wunprot_memory(stm);
 		fprintf(stdout,	"Done.\n");
+        ret = 0;
 	} else if (rp) {
 		fprintf(stdout, "Read-protecting flash\n");
 		/* the device automatically performs a reset after the sending the ACK */
 		reset_flag = 0;
 		stm32_readprotect_memory(stm);
 		fprintf(stdout,	"Done.\n");
+        ret = 0;
 	} else if (ru) {
 		fprintf(stdout, "Read-unprotecting flash\n");
 		/* the device automatically performs a reset after the sending the ACK */
 		reset_flag = 0;
 		stm32_readunprotect_memory(stm);
 		fprintf(stdout,	"Done.\n");
+        ret = 0;
 	} else if (wr) {
 		printf("\n");
 
