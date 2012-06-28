@@ -164,6 +164,8 @@ int main(int argc, char* argv[]) {
 		}
 
 		addr = stm->dev->fl_start + (spage * stm->dev->fl_ps);
+        fprintf(stderr, "Starting reading from address: %08x\n", addr);
+
 		fprintf(stdout, "\x1B[s");
 		fflush(stdout);
 		while(addr < stm->dev->fl_end) {
@@ -226,6 +228,8 @@ int main(int argc, char* argv[]) {
 		}
 
 		addr = stm->dev->fl_start + (spage * stm->dev->fl_ps);
+        fprintf(stderr, "Starting writing from address: %08x\n", addr);
+
 		fprintf(stdout, "\x1B[s");
 		fflush(stdout);
 		while(addr < stm->dev->fl_end && offset < size) {
